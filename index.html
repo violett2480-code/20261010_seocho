@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>기억력 짝 맞추기 게임</title>
+<style>
+:root{font-family:system-ui,-apple-system,"Malgun Gothic",sans-serif;color:#25324a}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:linear-gradient(145deg,#fef6db,#e1efff);display:grid;place-items:center;padding:20px}
+main{width:min(100%,480px);text-align:center;background:white;border-radius:24px;padding:24px 18px 28px;box-shadow:0 15px 40px #2343a322}
+h1{font-size:clamp(25px,6vw,34px);margin:4px 0 8px}
+p{margin:0 0 18px;color:#526079}
+.stats{display:flex;justify-content:center;gap:10px;margin-bottom:17px}
+.stats span{background:#edf4ff;padding:10px 16px;border-radius:12px;font-weight:750}
+.board{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.card{border:0;border-radius:14px;aspect-ratio:1;cursor:pointer;font-size:clamp(30px,8vw,45px);background:#2465d2;color:white;box-shadow:0 4px 0 #17458f;transition:background .16s,transform .16s;touch-action:manipulation}
+.card:focus-visible{outline:4px solid #ffae00;outline-offset:2px}
+.card.open,.card.matched{background:#fff2b9;color:#202020;box-shadow:inset 0 0 0 2px #f6d66a;transform:translateY(2px)}
+.card.matched{background:#dcf8e7;box-shadow:inset 0 0 0 2px #85d8a2}
+#message{min-height:28px;margin:20px 0 14px;font-size:18px;font-weight:750;color:#2355a4}
+#reset{border:0;background:#ffcc31;color:#302400;border-radius:14px;padding:14px 30px;font-weight:800;font-size:19px;cursor:pointer}
+small{display:block;margin-top:15px;color:#6a7385}
+</style>
+</head>
+<body>
+<main>
+<h1>🧠 기억력 짝 맞추기</h1>
+<p>카드 두 장을 뒤집어 같은 그림을 찾아보세요!</p>
+<div class="stats"><span>시도 <b id="moves">0</b>회</span><span>성공 <b id="pairs">0</b>/8쌍</span></div>
+<div id="board" class="board" aria-label="기억력 카드 게임"></div>
+<div id="message" aria-live="polite">카드를 눌러 시작하세요 😊</div>
+<button id="reset" type="button">🔄 다시 시작</button>
+<small>설치 없이 PC와 스마트폰에서 즐길 수 있어요.</small>
+</main>
+<script>
+const icons=['🍎','🍋','🍇','🍓','🌻','🐶','🐱','⭐'];
+const board=document.getElementById('board');
+const movesEl=document.getElementById('moves');
+const pairsEl=document.getElementById('pairs');
+const message=document.getElementById('message');
+let cards=[],first=null,second=null,locked=false,moves=0,pairs=0,timeoutId=null;
+function reset(){
+  if(timeoutId!==null){clearTimeout(timeoutId);timeoutId=null;}
+  first=null;second=null;locked=false;moves=0;pairs=0;
+  movesEl.textContent='0';pairsEl.textContent='0';message.textContent='카드를 눌러 시작하세요 😊';
+  cards=[...icons,...icons].sort(()=>Math.random()-.5);
+  board.replaceChildren();
+  cards.forEach((emoji,index)=>{
+    const button=document.createElement('button');
+    button.type='button';button.className='card';button.textContent='?';
+    button.setAttribute('aria-label',index+1+'번 숨겨진 카드');
+    button.dataset.emoji=emoji;
+    button.addEventListener('click',()=>flip(button));
+    board.appendChild(button);
+  });
+}
+function flip(card){
+  if(locked||card.classList.contains('open')||card.classList.contains('matched'))return;
+  card.classList.add('open');card.textContent=card.dataset.emoji;
+  card.setAttribute('aria-label',card.dataset.emoji+' 카드');
+  if(!first){first=card;return;}
+  second=card;locked=true;moves++;movesEl.textContent=moves;
+  if(first.dataset.emoji===second.dataset.emoji){
+    first.classList.add('matched');second.classList.add('matched');
+    first=null;second=null;locked=false;pairs++;pairsEl.textContent=pairs;
+    message.textContent=pairs===8?'🎉 성공! '+moves+'번 만에 모두 찾았어요!':'짝을 맞췄어요! 👏';
+  }else{
+    message.textContent='다른 그림이에요. 기억해 보세요!';
+    timeoutId=setTimeout(()=>{
+      [first,second].forEach(c=>{c.classList.remove('open');c.textContent='?';c.setAttribute('aria-label','숨겨진 카드');});
+      first=null;second=null;locked=false;timeoutId=null;
+    },850);
+  }
+}
+document.getElementById('reset').addEventListener('click',reset);
+reset();
+</script>
+</body>
+</html>
