@@ -187,6 +187,112 @@
       color: #2f7d4a;
     }
 
+    .card.pop,
+    .card.shake {
+      z-index: 2;
+      transition: background 0.28s ease;
+    }
+
+    .card.pop {
+      animation: card-pop 0.55s ease;
+    }
+
+    .card.shake {
+      animation: card-shake 0.4s ease;
+    }
+
+    .sparkles {
+      position: absolute;
+      inset: 0;
+      z-index: 3;
+      pointer-events: none;
+      overflow: visible;
+    }
+
+    .star {
+      position: absolute;
+      color: #f5c518;
+      font-size: clamp(0.95rem, 3.4vw, 1.35rem);
+      line-height: 1;
+      text-shadow: 0 0 8px #ffe98a;
+      animation: star-twinkle 0.7s ease-out forwards;
+    }
+
+    .confetti {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      overflow: hidden;
+      pointer-events: none;
+    }
+
+    .piece {
+      position: absolute;
+      top: 0;
+      border-radius: 2px;
+      animation-name: confetti-fall;
+      animation-timing-function: linear;
+      animation-fill-mode: forwards;
+    }
+
+    .celebrate {
+      position: fixed;
+      left: 50%;
+      top: 42%;
+      z-index: 21;
+      width: min(92vw, 440px);
+      margin: 0;
+      padding: 18px 16px;
+      border-radius: 22px;
+      background: rgba(255, 253, 248, 0.95);
+      box-shadow: 0 14px 36px rgba(80, 50, 110, 0.2);
+      color: #2f7d4a;
+      font-size: clamp(1.85rem, 6.8vw, 2.4rem);
+      font-weight: 800;
+      line-height: 1.35;
+      text-align: center;
+      pointer-events: none;
+      transform: translate(-50%, -50%);
+      animation: celebrate-in 0.35s ease;
+    }
+
+    .celebrate[hidden] {
+      display: none;
+    }
+
+    @keyframes card-pop {
+      0% { transform: scale(1); }
+      42% { transform: scale(1.08); }
+      100% { transform: scale(1); }
+    }
+
+    @keyframes card-shake {
+      0% { transform: translateX(0); }
+      15% { transform: translateX(-6px); }
+      30% { transform: translateX(6px); }
+      45% { transform: translateX(-4px); }
+      60% { transform: translateX(4px); }
+      75% { transform: translateX(-2px); }
+      90% { transform: translateX(2px); }
+      100% { transform: translateX(0); }
+    }
+
+    @keyframes star-twinkle {
+      0% { opacity: 0; transform: scale(0.25) rotate(0deg); }
+      35% { opacity: 1; transform: scale(1.25) rotate(18deg); }
+      100% { opacity: 0; transform: scale(0.7) translateY(-12px) rotate(36deg); }
+    }
+
+    @keyframes confetti-fall {
+      0% { transform: translate3d(0, -12vh, 0) rotate(0deg); }
+      100% { transform: translate3d(var(--drift), 110dvh, 0) rotate(var(--spin)); }
+    }
+
+    @keyframes celebrate-in {
+      from { opacity: 0; transform: translate(-50%, -46%) scale(0.9); }
+      to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    }
+
     @media (min-width: 640px) {
       .board {
         grid-template-columns: repeat(4, 1fr);
@@ -311,6 +417,8 @@
     <div class="board" id="board"></div>
     <p class="message" id="message" aria-live="polite"></p>
   </main>
+  <div class="confetti" id="confetti" aria-hidden="true"></div>
+  <p class="celebrate" id="celebrate" hidden>축하합니다! 모든 동물을 찾았어요!</p>
 
   <script>
     function animalPicture(markup) {
@@ -421,6 +529,8 @@
     let masterGain = null;
     let voices = [];
     let speakTimer = 0;
+    let mismatchTimer = 0;
+    let confettiTimer = 0;
     const liveSources = [];
     const heldUtterances = [];
 
@@ -629,6 +739,49 @@
       remember(osc);
     }
 
+    function playFlip() {
+      if (!soundOn) {
+        return;
+      }
+      whenRunning((ctx) => {
+        const now = ctx.currentTime;
+        const duration = 0.04;
+        const length = Math.max(1, Math.floor(ctx.sampleRate * duration));
+        const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < length; i += 1) {
+          data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, 2);
+        }
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
+        const filter = ctx.createBiquadFilter();
+        filter.type = "highpass";
+        filter.frequency.setValueAtTime(1600, now);
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(0.07, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+        source.connect(filter);
+        filter.connect(gain);
+        gain.connect(masterGain);
+        source.start(now);
+        source.stop(now + duration + 0.02);
+        remember(source);
+        playTone(ctx, 1480, now, 0.045, 0.04);
+      });
+    }
+
+    function playDingdong() {
+      if (!soundOn) {
+        return;
+      }
+      whenRunning((ctx) => {
+        const now = ctx.currentTime;
+        playTone(ctx, 988, now, 0.18, 0.11);
+        playTone(ctx, 1318, now, 0.1, 0.035);
+        playTone(ctx, 784, now + 0.14, 0.28, 0.1);
+      });
+    }
+
     function playMiss() {
       if (!soundOn) {
         return;
@@ -636,21 +789,17 @@
       whenRunning((ctx) => {
         const now = ctx.currentTime;
         const osc = ctx.createOscillator();
-        const filter = ctx.createBiquadFilter();
         const gain = ctx.createGain();
         osc.type = "sine";
-        osc.frequency.setValueAtTime(620, now);
-        osc.frequency.exponentialRampToValueAtTime(340, now + 0.18);
-        filter.type = "lowpass";
-        filter.frequency.setValueAtTime(1400, now);
+        osc.frequency.setValueAtTime(640, now);
+        osc.frequency.exponentialRampToValueAtTime(260, now + 0.16);
         gain.gain.setValueAtTime(0.0001, now);
-        gain.gain.exponentialRampToValueAtTime(0.08, now + 0.03);
-        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
-        osc.connect(filter);
-        filter.connect(gain);
+        gain.gain.exponentialRampToValueAtTime(0.07, now + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+        osc.connect(gain);
         gain.connect(masterGain);
         osc.start(now);
-        osc.stop(now + 0.24);
+        osc.stop(now + 0.2);
         remember(osc);
       });
     }
@@ -754,11 +903,68 @@
       movesEl.textContent = String(moves);
     }
 
+    const confettiLayer = document.getElementById("confetti");
+    const celebrateEl = document.getElementById("celebrate");
+
+    function clearEffects() {
+      window.clearTimeout(mismatchTimer);
+      window.clearTimeout(confettiTimer);
+      confettiLayer.innerHTML = "";
+      celebrateEl.hidden = true;
+    }
+
+    function showSparkles(card) {
+      card.classList.remove("pop");
+      void card.offsetWidth;
+      card.classList.add("pop");
+      const layer = document.createElement("span");
+      layer.className = "sparkles";
+      layer.setAttribute("aria-hidden", "true");
+      for (let i = 0; i < 6; i += 1) {
+        const star = document.createElement("span");
+        star.className = "star";
+        star.textContent = "★";
+        star.style.left = (12 + Math.random() * 68) + "%";
+        star.style.top = (8 + Math.random() * 68) + "%";
+        star.style.animationDelay = (Math.random() * 0.16) + "s";
+        layer.appendChild(star);
+      }
+      card.appendChild(layer);
+      window.setTimeout(() => {
+        layer.remove();
+        card.classList.remove("pop");
+      }, 800);
+    }
+
+    function showConfetti() {
+      confettiLayer.innerHTML = "";
+      celebrateEl.hidden = false;
+      const colors = ["#ff5d8f", "#ffd166", "#7bdff2", "#c77dff", "#80ed99", "#ff9f1c", "#f4a261", "#6ecbff"];
+      for (let i = 0; i < 48; i += 1) {
+        const piece = document.createElement("span");
+        piece.className = "piece";
+        piece.style.left = (Math.random() * 100) + "%";
+        piece.style.background = colors[i % colors.length];
+        piece.style.width = (6 + Math.random() * 6) + "px";
+        piece.style.height = (9 + Math.random() * 8) + "px";
+        piece.style.animationDuration = (2.4 + Math.random() * 0.6) + "s";
+        piece.style.animationDelay = (Math.random() * 0.25) + "s";
+        piece.style.setProperty("--drift", (Math.random() * 90 - 45) + "px");
+        piece.style.setProperty("--spin", (Math.random() * 540 - 270) + "deg");
+        confettiLayer.appendChild(piece);
+      }
+      window.clearTimeout(confettiTimer);
+      confettiTimer = window.setTimeout(() => {
+        confettiLayer.innerHTML = "";
+      }, 3000);
+    }
+
     function startGame() {
       lock = false;
       opened = [];
       moves = 0;
       pairs = 0;
+      clearEffects();
       updateMoves();
       messageEl.textContent = "";
       board.innerHTML = "";
@@ -788,6 +994,7 @@
 
       card.classList.add("flipped");
       card.setAttribute("aria-label", card.dataset.name);
+      playFlip();
       opened.push(card);
 
       if (opened.length < 2) {
@@ -804,9 +1011,13 @@
         second.classList.add("matched");
         first.disabled = true;
         second.disabled = true;
+        showSparkles(first);
+        showSparkles(second);
+        playDingdong();
         pairs += 1;
         if (pairs === animals.length) {
           messageEl.textContent = "성공! " + moves + "번 만에 모두 맞췄어요.";
+          showConfetti();
           playWin();
         } else {
           playMatch();
@@ -816,13 +1027,19 @@
 
       playMiss();
       lock = true;
-      window.setTimeout(() => {
-        first.classList.remove("flipped");
-        second.classList.remove("flipped");
+      [first, second].forEach((picked) => {
+        picked.classList.remove("shake");
+        void picked.offsetWidth;
+        picked.classList.add("shake");
+      });
+      window.clearTimeout(mismatchTimer);
+      mismatchTimer = window.setTimeout(() => {
+        first.classList.remove("flipped", "shake");
+        second.classList.remove("flipped", "shake");
         first.setAttribute("aria-label", "뒤집힌 카드");
         second.setAttribute("aria-label", "뒤집힌 카드");
         lock = false;
-      }, 1000);
+      }, 400);
     }
 
     if (speechSupported()) {
