@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>기억력 카드 짝 맞추기</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      min-height: 100vh;
+      font-family: "Segoe UI", "Apple SD Gothic Neo", sans-serif;
+      color: #3d2c4a;
+      background:
+        radial-gradient(circle at top, #fff7fb 0%, #f3e8ff 45%, #e7f6ff 100%);
+      display: flex;
+      justify-content: center;
+      padding: 24px 16px 40px;
+    }
+
+    .game {
+      width: min(520px, 100%);
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 18px;
+    }
+
+    h1 {
+      font-size: clamp(1.5rem, 5vw, 2rem);
+      margin-bottom: 6px;
+    }
+
+    .help {
+      color: #6b5b7a;
+      font-size: 0.95rem;
+    }
+
+    .top {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 10px;
+    }
+
+    button.sound {
+      min-height: 44px;
+      border: 0;
+      border-radius: 999px;
+      background: #fff;
+      color: #3d2c4a;
+      font: inherit;
+      font-weight: 700;
+      padding: 10px 16px;
+      cursor: pointer;
+      box-shadow: 0 6px 16px rgba(90, 60, 120, 0.08);
+    }
+
+    button.sound[aria-pressed="false"] {
+      color: #6b5b7a;
+      background: #efe7f8;
+    }
+
+    button.sound:active {
+      transform: translateY(1px);
+    }
+
+    .bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 16px 0 18px;
+    }
+
+    .moves {
+      background: #fff;
+      border-radius: 999px;
+      padding: 10px 16px;
+      font-weight: 700;
+      box-shadow: 0 6px 16px rgba(90, 60, 120, 0.08);
+    }
+
+    button.restart {
+      border: 0;
+      border-radius: 999px;
+      background: #7c5cbf;
+      color: #fff;
+      font: inherit;
+      font-weight: 700;
+      padding: 10px 16px;
+      cursor: pointer;
+    }
+
+    button.restart:active {
+      transform: translateY(1px);
+    }
+
+    button {
+      touch-action: manipulation;
+    }
+
+    .board {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    .card {
+      position: relative;
+      aspect-ratio: 3 / 4;
+      border: 0;
+      border-radius: 18px;
+      padding: 0;
+      background: linear-gradient(160deg, #8d6ad8, #5b8def);
+      color: #fff;
+      font-size: clamp(1.4rem, 6vw, 2rem);
+      font-weight: 800;
+      box-shadow: 0 8px 18px rgba(80, 50, 110, 0.12);
+      cursor: pointer;
+      transition: background 0.28s ease, transform 0.28s ease;
+    }
+
+    .card:disabled {
+      cursor: default;
+    }
+
+    .card.flipped,
+    .card.matched {
+      background: #fffdf8;
+      font-size: clamp(2rem, 8vw, 2.8rem);
+      font-weight: 400;
+    }
+
+    .card.matched {
+      background: #e9fff1;
+      box-shadow: inset 0 0 0 3px #7dcea0, 0 8px 18px rgba(80, 50, 110, 0.12);
+    }
+
+    .inner {
+      position: absolute;
+      inset: 0;
+    }
+
+    .face {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      transition: opacity 0.28s ease, transform 0.28s ease;
+    }
+
+    .back {
+      opacity: 0;
+      transform: scale(0.86);
+    }
+
+    .animal {
+      display: block;
+      width: 75%;
+      height: auto;
+      max-height: 80%;
+    }
+
+    .card.flipped .front,
+    .card.matched .front {
+      opacity: 0;
+      transform: scale(0.86);
+    }
+
+    .card.flipped .back,
+    .card.matched .back {
+      opacity: 1;
+      transform: none;
+    }
+
+    .message {
+      min-height: 1.6em;
+      margin-top: 16px;
+      text-align: center;
+      font-weight: 700;
+      color: #2f7d4a;
+    }
+
+    @media (min-width: 640px) {
+      .board {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+
+    @media (max-width: 639px) {
+      html,
+      body {
+        height: 100dvh;
+        overflow: hidden;
+      }
+
+      body {
+        min-height: 100dvh;
+        padding: 4px 8px 6px;
+      }
+
+      .game {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        height: 100%;
+        min-height: 0;
+      }
+
+      .top {
+        margin-bottom: 2px;
+      }
+
+      header {
+        margin-bottom: 2px;
+      }
+
+      h1 {
+        font-size: 1.15rem;
+        line-height: 1.15;
+        margin-bottom: 0;
+      }
+
+      .help {
+        font-size: 0.75rem;
+        line-height: 1.2;
+      }
+
+      .bar {
+        margin: 4px 0;
+      }
+
+      .moves,
+      button.sound,
+      button.restart {
+        min-height: 38px;
+        padding: 6px 12px;
+        font-size: 0.85rem;
+      }
+
+      .board {
+        flex: 1;
+        min-height: 0;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-rows: repeat(4, minmax(0, 1fr));
+        gap: clamp(4px, 0.8dvh, 8px);
+      }
+
+      .card {
+        width: 100%;
+        height: 100%;
+        min-width: 0;
+        min-height: 0;
+        aspect-ratio: auto;
+        border-radius: 14px;
+      }
+
+      .message {
+        flex: 0 0 auto;
+        min-height: 1.15em;
+        margin-top: 2px;
+        font-size: 0.82rem;
+        line-height: 1.2;
+      }
+    }
+
+    @media (max-width: 639px) and (max-height: 560px) {
+      html,
+      body {
+        height: auto;
+        overflow: auto;
+      }
+
+      body {
+        min-height: 100dvh;
+      }
+
+      .game {
+        height: auto;
+      }
+
+      .board {
+        height: calc(100dvh - 9.5rem);
+      }
+
+      .card {
+        min-height: 64px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="game">
+    <div class="top">
+      <button class="sound" id="sound" type="button" aria-pressed="true">소리 끄기</button>
+    </div>
+    <header>
+      <h1>기억력 카드</h1>
+      <p class="help">같은 동물 두 장을 찾아 보세요.</p>
+    </header>
+    <div class="bar">
+      <p class="moves">시도 <span id="moves">0</span>번</p>
+      <button class="restart" id="restart" type="button">다시 시작</button>
+    </div>
+    <div class="board" id="board"></div>
+    <p class="message" id="message" aria-live="polite"></p>
+  </main>
+
+  <script>
+    function animalPicture(markup) {
+      return '<svg class="animal" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" aria-hidden="true">' + markup + "</svg>";
+    }
+
+    const animals = [
+      {
+        id: "dog",
+        name: "강아지",
+        svg: animalPicture(
+          '<ellipse cx="18" cy="62" rx="18" ry="30" fill="#d4893a"/>' +
+          '<ellipse cx="82" cy="62" rx="18" ry="30" fill="#d4893a"/>' +
+          '<circle cx="50" cy="52" r="42" fill="#f6c36b"/>' +
+          '<ellipse cx="50" cy="68" rx="24" ry="18" fill="#fff6e8"/>' +
+          '<circle cx="35" cy="48" r="6" fill="#3d2c4a"/>' +
+          '<circle cx="65" cy="48" r="6" fill="#3d2c4a"/>' +
+          '<ellipse cx="50" cy="62" rx="9" ry="7" fill="#3d2c4a"/>' +
+          '<path d="M40 68 Q50 92 64 68" fill="#ef6d73"/>'
+        )
+      },
+      {
+        id: "cat",
+        name: "고양이",
+        svg: animalPicture(
+          '<polygon points="24,42 6,2 42,28" fill="#f08a24"/>' +
+          '<polygon points="76,42 94,2 58,28" fill="#f08a24"/>' +
+          '<polygon points="26,38 14,10 40,30" fill="#ffd0dc"/>' +
+          '<polygon points="74,38 86,10 60,30" fill="#ffd0dc"/>' +
+          '<circle cx="50" cy="58" r="40" fill="#ff9d3c"/>' +
+          '<circle cx="35" cy="54" r="6" fill="#2f6b3a"/>' +
+          '<circle cx="65" cy="54" r="6" fill="#2f6b3a"/>' +
+          '<polygon points="50,62 43,74 57,74" fill="#ef6d8a"/>' +
+          '<path d="M4 58 H28 M72 58 H96 M6 70 H28 M72 70 H94" stroke="#3d2c4a" stroke-width="4" stroke-linecap="round"/>'
+        )
+      },
+      {
+        id: "rabbit",
+        name: "토끼",
+        svg: animalPicture(
+          '<ellipse cx="34" cy="34" rx="14" ry="32" fill="#fffdf8" stroke="#e7b7c6" stroke-width="3"/>' +
+          '<ellipse cx="66" cy="34" rx="14" ry="32" fill="#fffdf8" stroke="#e7b7c6" stroke-width="3"/>' +
+          '<ellipse cx="34" cy="36" rx="7" ry="22" fill="#ffb7c8"/>' +
+          '<ellipse cx="66" cy="36" rx="7" ry="22" fill="#ffb7c8"/>' +
+          '<circle cx="50" cy="64" r="34" fill="#fffdf8" stroke="#e7b7c6" stroke-width="3"/>' +
+          '<circle cx="38" cy="60" r="5" fill="#3d2c4a"/>' +
+          '<circle cx="62" cy="60" r="5" fill="#3d2c4a"/>' +
+          '<ellipse cx="50" cy="72" rx="7" ry="5" fill="#f29ab0"/>' +
+          '<rect x="44" y="76" width="5" height="10" rx="1.5" fill="#fffdf8" stroke="#c9b8c0" stroke-width="1.5"/>' +
+          '<rect x="51" y="76" width="5" height="10" rx="1.5" fill="#fffdf8" stroke="#c9b8c0" stroke-width="1.5"/>'
+        )
+      },
+      {
+        id: "fox",
+        name: "여우",
+        svg: animalPicture(
+          '<polygon points="28,46 4,2 46,30" fill="#ef6a2f"/>' +
+          '<polygon points="72,46 96,2 54,30" fill="#ef6a2f"/>' +
+          '<polygon points="30,40 14,8 44,32" fill="#ffe7c2"/>' +
+          '<polygon points="70,40 86,8 56,32" fill="#ffe7c2"/>' +
+          '<circle cx="50" cy="58" r="40" fill="#f47a32"/>' +
+          '<ellipse cx="50" cy="74" rx="26" ry="20" fill="#fff7ee"/>' +
+          '<path d="M34 50 Q42 62 34 66" fill="#3d2c4a"/>' +
+          '<path d="M66 50 Q58 62 66 66" fill="#3d2c4a"/>' +
+          '<polygon points="50,64 42,80 58,80" fill="#3d2c4a"/>'
+        )
+      },
+      {
+        id: "bear",
+        name: "곰",
+        svg: animalPicture(
+          '<circle cx="24" cy="24" r="18" fill="#7a4a32"/>' +
+          '<circle cx="76" cy="24" r="18" fill="#7a4a32"/>' +
+          '<circle cx="50" cy="58" r="42" fill="#8d5a3c"/>' +
+          '<ellipse cx="50" cy="72" rx="24" ry="18" fill="#f0d2b4"/>' +
+          '<circle cx="36" cy="52" r="6" fill="#3d2c4a"/>' +
+          '<circle cx="64" cy="52" r="6" fill="#3d2c4a"/>' +
+          '<ellipse cx="50" cy="68" rx="10" ry="8" fill="#4a3428"/>'
+        )
+      },
+      {
+        id: "panda",
+        name: "판다",
+        svg: animalPicture(
+          '<circle cx="22" cy="24" r="18" fill="#2b2b2b"/>' +
+          '<circle cx="78" cy="24" r="18" fill="#2b2b2b"/>' +
+          '<circle cx="50" cy="58" r="42" fill="#fffdf8" stroke="#2b2b2b" stroke-width="3"/>' +
+          '<ellipse cx="34" cy="56" rx="16" ry="18" fill="#2b2b2b"/>' +
+          '<ellipse cx="66" cy="56" rx="16" ry="18" fill="#2b2b2b"/>' +
+          '<circle cx="34" cy="56" r="5.5" fill="#fff"/>' +
+          '<circle cx="66" cy="56" r="5.5" fill="#fff"/>' +
+          '<ellipse cx="50" cy="74" rx="9" ry="7" fill="#2b2b2b"/>'
+        )
+      }
+    ];
+    const board = document.getElementById("board");
+    const movesEl = document.getElementById("moves");
+    const messageEl = document.getElementById("message");
+    const restartBtn = document.getElementById("restart");
+    const soundBtn = document.getElementById("sound");
+
+    let lock = false;
+    let opened = [];
+    let moves = 0;
+    let pairs = 0;
+    let soundOn = true;
+    let audioCtx = null;
+    let masterGain = null;
+    let voices = [];
+    let speakTimer = 0;
+    const liveSources = [];
+    const heldUtterances = [];
+
+    function isIOS() {
+      return /iPad|iPhone|iPod/.test(navigator.userAgent)
+        || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    }
+
+    function speechSupported() {
+      return typeof window.speechSynthesis !== "undefined"
+        && typeof window.SpeechSynthesisUtterance !== "undefined";
+    }
+
+    function refreshVoices() {
+      if (!speechSupported()) {
+        return;
+      }
+      voices = speechSynthesis.getVoices();
+    }
+
+    function koreanVoice() {
+      const normalized = (voice) => voice.lang.toLowerCase().replace("_", "-");
+      const korean = voices.filter((voice) => normalized(voice).startsWith("ko"));
+      return korean.find((voice) => normalized(voice).startsWith("ko-kr")) || korean[0] || null;
+    }
+
+    function ensureAudio() {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) {
+        return null;
+      }
+      if (!audioCtx) {
+        audioCtx = new AudioCtx();
+        masterGain = audioCtx.createGain();
+        masterGain.gain.value = 1;
+        masterGain.connect(audioCtx.destination);
+      }
+      return audioCtx;
+    }
+
+    function unlockAudio() {
+      const ctx = ensureAudio();
+      if (ctx && ctx.state === "suspended") {
+        const pending = ctx.resume();
+        if (pending && typeof pending.catch === "function") {
+          pending.catch(() => {});
+        }
+      }
+      if (ctx) {
+        const buffer = ctx.createBuffer(1, 1, ctx.sampleRate);
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(masterGain);
+        try {
+          source.start(ctx.currentTime);
+        } catch (error) {
+          source.disconnect();
+        }
+      }
+      if (speechSupported()) {
+        refreshVoices();
+        speechSynthesis.resume();
+      }
+    }
+
+    function whenRunning(task) {
+      const ctx = ensureAudio();
+      if (!ctx || !soundOn) {
+        return;
+      }
+      const run = () => {
+        if (!soundOn) {
+          return;
+        }
+        task(ctx);
+      };
+      if (ctx.state === "running") {
+        run();
+        return;
+      }
+      const pending = ctx.resume();
+      if (pending && typeof pending.then === "function") {
+        pending.then(run).catch(() => {});
+        return;
+      }
+      run();
+    }
+
+    function remember(source) {
+      liveSources.push(source);
+      source.onended = () => {
+        const index = liveSources.indexOf(source);
+        if (index >= 0) {
+          liveSources.splice(index, 1);
+        }
+      };
+    }
+
+    function stopAudio() {
+      window.clearTimeout(speakTimer);
+      liveSources.forEach((source) => {
+        try {
+          source.stop();
+        } catch (error) {
+          return;
+        }
+      });
+      liveSources.length = 0;
+      heldUtterances.length = 0;
+      if (speechSupported()) {
+        speechSynthesis.cancel();
+      }
+    }
+
+    function updateSoundButton() {
+      soundBtn.setAttribute("aria-pressed", soundOn ? "true" : "false");
+      soundBtn.textContent = soundOn ? "소리 끄기" : "소리 켜기";
+    }
+
+    function toggleSound() {
+      soundOn = !soundOn;
+      updateSoundButton();
+      if (!soundOn) {
+        stopAudio();
+        return;
+      }
+      unlockAudio();
+    }
+
+    function releaseUtterance(utterance) {
+      const index = heldUtterances.indexOf(utterance);
+      if (index >= 0) {
+        heldUtterances.splice(index, 1);
+      }
+    }
+
+    function queueSpeech(lines) {
+      if (!soundOn || !speechSupported()) {
+        return false;
+      }
+      const voice = koreanVoice();
+      lines.forEach((line, index) => {
+        const utterance = new SpeechSynthesisUtterance(line.text);
+        utterance.lang = "ko-KR";
+        utterance.pitch = line.pitch;
+        utterance.rate = line.rate;
+        utterance.volume = 1;
+        if (voice) {
+          utterance.voice = voice;
+        }
+        heldUtterances.push(utterance);
+        utterance.onend = () => releaseUtterance(utterance);
+        utterance.onerror = (event) => {
+          releaseUtterance(utterance);
+          if (!event || event.error === "canceled" || event.error === "interrupted" || index > 0) {
+            return;
+          }
+          if (line.fallback) {
+            line.fallback();
+          }
+        };
+        speechSynthesis.speak(utterance);
+      });
+      speechSynthesis.resume();
+      return true;
+    }
+
+    function speakKorean(lines) {
+      if (!soundOn) {
+        return false;
+      }
+      unlockAudio();
+      if (!speechSupported()) {
+        return false;
+      }
+      refreshVoices();
+      window.clearTimeout(speakTimer);
+      const busy = speechSynthesis.speaking || speechSynthesis.pending;
+      if (busy && !isIOS()) {
+        speechSynthesis.cancel();
+        speakTimer = window.setTimeout(() => queueSpeech(lines), 50);
+        return true;
+      }
+      if (busy) {
+        speechSynthesis.cancel();
+      }
+      try {
+        return queueSpeech(lines);
+      } catch (error) {
+        return false;
+      }
+    }
+
+    function playTone(ctx, frequency, time, duration, volume) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(frequency, time);
+      gain.gain.setValueAtTime(0.0001, time);
+      gain.gain.exponentialRampToValueAtTime(volume, time + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, time + duration);
+      osc.connect(gain);
+      gain.connect(masterGain);
+      osc.start(time);
+      osc.stop(time + duration + 0.02);
+      remember(osc);
+    }
+
+    function playMiss() {
+      if (!soundOn) {
+        return;
+      }
+      whenRunning((ctx) => {
+        const now = ctx.currentTime;
+        const osc = ctx.createOscillator();
+        const filter = ctx.createBiquadFilter();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(620, now);
+        osc.frequency.exponentialRampToValueAtTime(340, now + 0.18);
+        filter.type = "lowpass";
+        filter.frequency.setValueAtTime(1400, now);
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(0.08, now + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(masterGain);
+        osc.start(now);
+        osc.stop(now + 0.24);
+        remember(osc);
+      });
+    }
+
+    function playClap(ctx, time, volume) {
+      const duration = 0.08;
+      const length = Math.max(1, Math.floor(ctx.sampleRate * duration));
+      const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < length; i += 1) {
+        data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, 3);
+      }
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      const filter = ctx.createBiquadFilter();
+      filter.type = "bandpass";
+      filter.frequency.setValueAtTime(1400 + Math.random() * 800, time);
+      filter.Q.setValueAtTime(0.6, time);
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(volume, time);
+      gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
+      source.connect(filter);
+      filter.connect(gain);
+      gain.connect(masterGain);
+      source.start(time);
+      source.stop(time + duration + 0.02);
+      remember(source);
+    }
+
+    function playApplause(delay) {
+      if (!soundOn) {
+        return;
+      }
+      whenRunning((ctx) => {
+        const start = ctx.currentTime + delay;
+        [0, 0.11, 0.22, 0.34, 0.46, 0.57, 0.71, 0.84, 0.98, 1.12, 1.28, 1.45].forEach((offset, index) => {
+          playClap(ctx, start + offset, 0.14 + (index % 4) * 0.025);
+        });
+      });
+    }
+
+    function playCheerTone() {
+      whenRunning((ctx) => {
+        const now = ctx.currentTime;
+        playTone(ctx, 523.25, now, 0.16, 0.1);
+        playTone(ctx, 659.25, now + 0.12, 0.2, 0.1);
+      });
+    }
+
+    function playWinTone() {
+      whenRunning((ctx) => {
+        const now = ctx.currentTime;
+        [523.25, 659.25, 783.99, 1046.5].forEach((frequency, index) => {
+          playTone(ctx, frequency, now + index * 0.12, 0.2, 0.1);
+        });
+      });
+    }
+
+    function playMatch() {
+      const spoken = speakKorean([{
+        text: "잘했어요!",
+        pitch: 1.05,
+        rate: 0.95,
+        fallback: playCheerTone
+      }]);
+      if (!spoken) {
+        playCheerTone();
+      }
+    }
+
+    function playWin() {
+      const spoken = speakKorean([
+        {
+          text: "잘했어요!",
+          pitch: 1.05,
+          rate: 0.95,
+          fallback: playWinTone
+        },
+        {
+          text: "축하합니다! 성공했어요!",
+          pitch: 1.05,
+          rate: 0.95
+        }
+      ]);
+      playApplause(spoken ? 0.7 : 0.15);
+      if (!spoken) {
+        playWinTone();
+      }
+    }
+
+    function shuffle(list) {
+      const cards = list.slice();
+      for (let i = cards.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [cards[i], cards[j]] = [cards[j], cards[i]];
+      }
+      return cards;
+    }
+
+    function updateMoves() {
+      movesEl.textContent = String(moves);
+    }
+
+    function startGame() {
+      lock = false;
+      opened = [];
+      moves = 0;
+      pairs = 0;
+      updateMoves();
+      messageEl.textContent = "";
+      board.innerHTML = "";
+
+      shuffle(animals.concat(animals)).forEach((animal) => {
+        const card = document.createElement("button");
+        card.type = "button";
+        card.className = "card";
+        card.dataset.animal = animal.id;
+        card.dataset.name = animal.name;
+        card.setAttribute("aria-label", "뒤집힌 카드");
+        card.innerHTML = '<span class="inner"><span class="face front">?</span><span class="face back"></span></span>';
+        card.querySelector(".back").innerHTML = animal.svg;
+        card.addEventListener("click", () => flipCard(card));
+        board.appendChild(card);
+        const picture = card.querySelector(".animal");
+        const bounds = picture.getBBox();
+        picture.setAttribute("viewBox", (bounds.x - 1) + " " + (bounds.y - 1) + " " + (bounds.width + 2) + " " + (bounds.height + 2));
+      });
+    }
+
+    function flipCard(card) {
+      unlockAudio();
+      if (lock || card.classList.contains("flipped") || card.classList.contains("matched")) {
+        return;
+      }
+
+      card.classList.add("flipped");
+      card.setAttribute("aria-label", card.dataset.name);
+      opened.push(card);
+
+      if (opened.length < 2) {
+        return;
+      }
+
+      moves += 1;
+      updateMoves();
+      const [first, second] = opened;
+      opened = [];
+
+      if (first.dataset.animal === second.dataset.animal) {
+        first.classList.add("matched");
+        second.classList.add("matched");
+        first.disabled = true;
+        second.disabled = true;
+        pairs += 1;
+        if (pairs === animals.length) {
+          messageEl.textContent = "성공! " + moves + "번 만에 모두 맞췄어요.";
+          playWin();
+        } else {
+          playMatch();
+        }
+        return;
+      }
+
+      playMiss();
+      lock = true;
+      window.setTimeout(() => {
+        first.classList.remove("flipped");
+        second.classList.remove("flipped");
+        first.setAttribute("aria-label", "뒤집힌 카드");
+        second.setAttribute("aria-label", "뒤집힌 카드");
+        lock = false;
+      }, 1000);
+    }
+
+    if (speechSupported()) {
+      refreshVoices();
+      speechSynthesis.addEventListener("voiceschanged", refreshVoices);
+    }
+    window.addEventListener("pointerdown", unlockAudio, { passive: true });
+    window.addEventListener("touchstart", unlockAudio, { passive: true });
+    soundBtn.addEventListener("click", toggleSound);
+    restartBtn.addEventListener("click", startGame);
+    startGame();
+  </script>
+</body>
+</html>
